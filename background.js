@@ -28,7 +28,7 @@ chrome.runtime.onInstalled.addListener(() => {
         if (response && response.emailBody) {
           chrome.storage.sync.get(defaultSettings, (items) => {
             console.log("Retrieved storage items:", items);
-            const fullText = `${items.prependText}\n\n${response.emailBody}\n\n${items.appendText}`.trim();
+            const fullText = `${items.prependText}\n\n${typeof response.emailBody === 'string' ? response.emailBody : JSON.stringify(response.emailBody, null, 2)}\n\n${items.appendText}`.trim();
             console.log("Prepared full text:", fullText);
             chrome.tabs.create({url: "https://claude.ai/"}, (newTab) => {
               console.log("Created new tab:", newTab);

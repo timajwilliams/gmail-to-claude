@@ -18,22 +18,30 @@ function waitForElement(selector, timeout = 30000) {
 
 function simulateSend(editableDiv) {
   return new Promise((resolve, reject) => {
-    // Try different selectors for the send button
-    const sendButton = document.querySelector('button[aria-label="Send Message"]') ||
-                       document.querySelector('button[type="submit"]') ||
-                       editableDiv.closest('form').querySelector('button');
-    
-    if (sendButton) {
-      console.log("Send button found:", sendButton);
-      sendButton.click();
-      console.log("Clicked send button");
-      resolve();
-    } else {
-      console.error("Send button not found");
-      reject(new Error("Send button not found"));
-    }
+    const checkForSendButton = setInterval(() => {
+      const sendButton = document.querySelector('button[aria-label="Send Message"]') ||
+                         document.querySelector('button[type="submit"]') ||
+                         editableDiv.closest('form').querySelector('button');
+      
+      if (sendButton) {
+        clearInterval(checkForSendButton);
+        console.log("Send button found:", sendButton);
+        sendButton.click();
+        console.log("Clicked send button");
+        resolve();
+      }
+    }, 500); // Check every 500ms
+
+    // Set a timeout to stop checking after 10 seconds
+    setTimeout(() => {
+      clearInterval(checkForSendButton);
+      console.error("Send button not found after 10 seconds");
+      reject(new Error("Send button not found after timeout"));
+    }, 10000);
   });
 }
+
+// ... existing code ...
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log("Message received in Claude content script:", request);
@@ -43,8 +51,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .then((editableDiv) => {
         console.log("Editable div found:", editableDiv);
         
-        // Preserve line breaks and spaces without using <pre>
-        const formattedContent = request.emailBody
+        // Attempt to parse as JSON, if it fails, use the content as-is
+        let formattedContent;
+        try {
+          const parsedContent = JSON.parse(request.emailBody);
+          formattedContent = JSON.stringify(parsedContent, null, 2);
+        } catch (e) {
+          console.log("Input is not JSON, using as plain text");
+          formattedContent = request.emailBody;
+        }
+        
+        // Preserve line breaks and spaces
+        formattedContent = formattedContent
           .replace(/\n/g, '<br>')
           .replace(/ {2,}/g, match => '&nbsp;'.repeat(match.length));
         
@@ -52,18 +70,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         editableDiv.dispatchEvent(new Event('input', { bubbles: true }));
         console.log("Text pasted into editable div");
         
-        // Increase timeout to allow for any UI updates
         setTimeout(() => {
           simulateSend(editableDiv)
             .then(() => {
-              console.log("Prompt sent successfully");
+              console.log("Message sent successfully");
               sendResponse({success: true, message: "Email pasted and sent successfully"});
             })
             .catch((error) => {
-              console.error("Error sending prompt:", error);
-              sendResponse({success: false, message: "Failed to send prompt"});
+              console.error("Error sending message:", error);
+              sendResponse({success: false, message: "Failed to send message"});
             });
-        }, 1000); // Increased timeout to 1000ms
+        }, 1000); // Wait for 1 second before attempting to send
+        
+        // ... rest of the existing code ...
       })
       .catch((error) => {
         console.error("Error finding editable div:", error);

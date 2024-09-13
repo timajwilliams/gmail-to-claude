@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (response && response.emailBody) {
           chrome.storage.sync.get(['prependText', 'appendText'], (items) => {
             console.log("Retrieved storage items:", items);
-            const fullText = `${items.prependText || ''}\n\n${response.emailBody}\n\n${items.appendText || ''}`.trim();
+            const fullText = `${items.prependText || ''}\n\n${typeof response.emailBody === 'string' ? response.emailBody : JSON.stringify(response.emailBody, null, 2)}\n\n${items.appendText || ''}`.trim();
             console.log("Prepared full text:", fullText);
             chrome.runtime.sendMessage({action: "openClaude", fullText: fullText}, (response) => {
               if (chrome.runtime.lastError) {
